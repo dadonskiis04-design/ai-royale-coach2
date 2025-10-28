@@ -1,26 +1,22 @@
-from flask import Flask, render_template
+from flask import Flask, request, jsonify
+from pydantic import BaseModel
+from typing import List
 
 app = Flask(__name__)
 
+# Simple homepage to confirm the app is running
 @app.route('/')
 def home():
-    return "<h1>Welcome to Clash Coach AI!</h1><p>Smart Clash Royale tips coming soon.</p>"
+    return "<h1>Welcome to Clash Coach AI!</h1><p>Use POST /analyze-deck with a JSON deck list.</p>"
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-    from fastapi import Request
-from pydantic import BaseModel
-
-class DeckRequest(BaseModel):
-    cards: list[str]
-
-@app.post("/analyze-deck")
-def analyze_deck(data: DeckRequest):
-    cards = [card.lower() for card in data.cards]
+# Define the data model (manually validated, since we're not using FastAPI here)
+@app.route('/analyze-deck', methods=['POST'])
+def analyze_deck():
+    data = request.get_json()
+    cards = [c.lower() for c in data.get("cards", [])]
 
     advice = []
 
-    # Example logic (you can expand this later)
     if "golem" in cards:
         advice.append("Golem deck detected — make sure you have a good air defense like Mega Minion or Baby Dragon.")
     if "hog rider" in cards:
@@ -30,5 +26,7 @@ def analyze_deck(data: DeckRequest):
     if not advice:
         advice.append("Deck looks balanced, test it out and adjust based on your matchups.")
 
-    return {"deck": data.cards, "advice": advice}
+    return jsonify({"deck": data.get("cards", []), "advice": advice})
 
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
