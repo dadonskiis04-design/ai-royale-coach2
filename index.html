@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Clash Coach AI - v1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 16px; background:#0f1724; color:#e6eef8; }
+    textarea { width:100%; height:180px; padding:8px; border-radius:8px; border:none; }
+    select, button { padding:10px; margin-top:8px; border-radius:8px; border:none; }
+    .card { background:#0b1120; padding:12px; border-radius:10px; margin-top:10px; }
+    .advice { background:#081226; padding:10px; border-radius:8px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <h1>Clash Coach AI (v1)</h1>
+  <p>Paste a short match summary or notes (e.g. "I used Hog + Fireball, opponent used Mini P.E.K.K.A + Log").</p>
+  <textarea id="text" placeholder="Type or paste match summary..."></textarea>
+  <div style="display:flex; gap:8px; margin-top:8px;">
+    <select id="tone">
+      <option value="balanced">Balanced</option>
+      <option value="coach">Coach</option>
+      <option value="hype">Hype Gamer</option>
+    </select>
+    <button onclick="analyze()">Analyze</button>
+  </div>
+  <div id="result" class="card"></div>
+<script>
+async function analyze(){
+  const text = document.getElementById('text').value.trim();
+  const tone = document.getElementById('tone').value;
+  if(!text){ alert('Please paste a match summary first.'); return; }
+  document.getElementById('result').innerHTML = '<em>Analyzing...</em>';
+  try{
+    const res = await fetch('/analyze', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ text, tone })
+    });
+    const data = await res.json();
+    let html = '<h3>Reports</h3><ul>';
+    for(const r of data.reports){ html += `<li>${r.desc}</li>`; }
+    html += '</ul><h3>Advice</h3>';
+    for(const a of data.advice){ html += `<div class="advice">${a}</div>`; }
+    document.getElementById('result').innerHTML = html;
+  }catch(err){
+    document.getElementById('result').innerHTML = 'Error: '+err.message;
+  }
+}
+</script>
+</body>
+</html>
