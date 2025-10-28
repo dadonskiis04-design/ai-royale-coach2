@@ -31,3 +31,4 @@ def analyze_deck(data: DeckRequest):
         advice.append("Deck looks balanced, test it out and adjust based on your matchups.")
 
     return {"deck": data.cards, "advice": advice}
+    
