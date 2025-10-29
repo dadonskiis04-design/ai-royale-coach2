@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clash Coach AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #121212;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        h1 { color: #FFD700; }
+        input, button {
+            margin-top: 10px;
+            padding: 8px;
+            font-size: 16px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            display: inline-block;
+            background: #1E1E1E;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clash Coach AI</h1>
+    <p>Enter your deck cards separated by commas:</p>
+    <input id="deckInput" placeholder="e.g. Golem, Baby Dragon, Night Witch" size="40">
+    <br>
+    <button onclick="analyzeDeck()">Analyze Deck</button>
+
+    <div class="result" id="resultBox"></div>
+
+    <script>
+        async function analyzeDeck() {
+            const input = document.getElementById("deckInput").value;
+            const cards = input.split(",").map(c => c.trim());
+            const res = await fetch("/analyze-deck", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cards })
+            });
+            const data = await res.json();
+            document.getElementById("resultBox").innerHTML = 
+                "<strong>Advice:</strong><br>" + data.advice.join("<br>");
+        }
+    </script>
+</body>
+</html>
