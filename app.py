@@ -9,45 +9,36 @@ def home():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     deck = request.form['deck']
-    cards = [c.strip().lower() for c in deck.split(',') if c.strip()]
 
-    # --- Basic scoring system ---
-    score = 50  # baseline
+    # Simple "AI" scoring system (you can tweak this later)
+    score = 0
+    keywords = {
+        'hog': 15, 'giant': 10, 'archer': 10, 'musketeer': 10,
+        'cannon': 8, 'log': 8, 'fireball': 10, 'skeletons': 6,
+        'ice': 6, 'miner': 12, 'balloon': 14, 'goblin': 9,
+        'valkyrie': 11, 'wizard': 10, 'pekka': 13
+    }
 
-    # Card count bonus/penalty
-    if len(cards) == 8:
-        score += 10
-    elif len(cards) < 6:
-        score -= 10
-    elif len(cards) > 10:
-        score -= 5
+    # Check for matching keywords to calculate score
+    for word, value in keywords.items():
+        if word.lower() in deck.lower():
+            score += value
 
-    # Keyword bonuses
-    air = ["baby dragon", "minions", "minion horde", "archer queen"]
-    spell = ["fireball", "log", "zap", "arrows", "rocket"]
-    building = ["cannon", "inferno tower", "tesla", "bomb tower"]
-    tank = ["giant", "golem", "pekka", "royal giant", "lava hound"]
+    # Cap the score at 100
+    if score > 100:
+        score = 100
 
-    if any(c in card for c in cards for card in air):
-        score += 5
-    if any(c in card for c in cards for card in spell):
-        score += 5
-    if any(c in card for c in cards for card in building):
-        score += 5
-    if any(c in card for c in cards for card in tank):
-        score += 5
-
-    # Keep within 0-100 range
-    score = max(0, min(100, score))
-
-    # Messages
-    if score > 85:
-        message = "🔥 Excellent deck with strong synergy and coverage!"
-    elif score > 70:
-        message = "⚔️ Solid and balanced deck overall!"
-    elif score > 50:
-        message = "⚠️ Decent deck, but could use some tuning."
+    # Generate a short message
+    if score >= 80:
+        message = "🔥 Excellent deck — well-balanced and powerful!"
+    elif score >= 60:
+        message = "💪 Strong deck with solid synergy."
+    elif score >= 40:
+        message = "⚔️ Decent deck, but could use better synergy."
     else:
-        message = "💀 Weak composition — may struggle against meta decks."
+        message = "😅 Weak composition — might need stronger cards."
 
     return render_template('result.html', score=score, message=message)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
