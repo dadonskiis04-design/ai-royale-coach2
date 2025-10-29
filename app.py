@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Simple homepage to confirm the app is running
 @app.route('/')
 def home():
-    return "<h1>Welcome to Clash Coach AI!</h1><p>Use POST /analyze-deck with a JSON deck list.</p>"
+    return render_template('index.html')
 
 # Define the data model (manually validated, since we're not using FastAPI here)
 @app.route('/analyze-deck', methods=['POST'])
