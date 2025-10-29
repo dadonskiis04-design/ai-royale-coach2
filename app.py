@@ -16,7 +16,19 @@ def home():
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are a Clash Royale deck analyst."},
-                    {"role": "user", "content": f"Analyze this deck: {deck}"}
+                    {"role": "user", "content": f"""
+Analyze this Clash Royale deck: {deck}
+
+Give a structured analysis including:
+- Deck Strengths
+- Deck Weaknesses
+- Ideal Playstyle
+- Best Counters
+- Average Elixir Cost
+- And finally, rate this deck out of 100 points based on balance, synergy, and meta strength.
+
+Format the output neatly with clear sections.
+"""}
                 ]
             )
             result = response.choices[0].message.content
