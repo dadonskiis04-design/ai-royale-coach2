@@ -1,49 +1,92 @@
 from flask import Flask, render_template, request, jsonify
 from openai import OpenAI
-import os
+import os, json
 
 app = Flask(__name__)
 
-# Initialize OpenAI client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-# Create uploads folder if it doesn't exist
 os.makedirs("uploads", exist_ok=True)
 
+MEMORY_FILE = "memory.json"
 
-# 🧩 Route 1: Deck Analyzer (Text)
+
+# ---------------------------
+# 📘 MEMORY SYSTEM
+# ---------------------------
+def load_memory():
+    if not os.path.exists(MEMORY_FILE):
+        return []
+    with open(MEMORY_FILE, "r") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return []
+
+def save_memory(entry):
+    memory = load_memory()
+    memory.append(entry)
+    with open(MEMORY_FILE, "w") as f:
+        json.dump(memory[-50:], f, indent=2)  # keep last 50 memories
+
+
+# ---------------------------
+# ⚔️ DECK ANALYZER
+# ---------------------------
 @app.route('/', methods=['GET', 'POST'])
 def home():
     result = None
     if request.method == 'POST':
         deck = request.form['deck']
+        memory = load_memory()
+        recent_context = "\n".join(
+            [f"- {m['type']}: {m['summary']}" for m in memory[-5:]]
+        )
+
         try:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a Clash Royale deck analyst."},
-                    {"role": "user", "content": f"""
-Analyze this Clash Royale deck: {deck}
+                    {
+                        "role": "system",
+                        "content": "You are a Clash Royale deck analyst that remembers past analyses."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""
+Here’s some past knowledge:
+{recent_context}
 
-Give a structured analysis including:
-- Deck Strengths
-- Deck Weaknesses
+Now analyze this new deck: {deck}
+
+Give:
+- Strengths
+- Weaknesses
 - Ideal Playstyle
 - Best Counters
 - Average Elixir Cost
-- And finally, rate this deck out of 100 points based on balance, synergy, and meta strength.
-
-Format the output neatly with clear sections.
-"""}
+- Rating /100
+"""
+                    }
                 ]
             )
             result = response.choices[0].message.content
+
+            save_memory({
+                "type": "deck_analysis",
+                "deck": deck,
+                "summary": result[:200] + "...",
+            })
+
         except Exception as e:
             result = f"Error: {str(e)}"
+
     return render_template('index.html', result=result)
 
 
-# 🧠 Route 2: Gameplay Frame Analyzer (Images)
+# ---------------------------
+# 🧠 FRAME ANALYZER
+# ---------------------------
 @app.route("/analyze_frames", methods=["POST"])
 def analyze_frames():
     files = request.files.getlist("frames")
@@ -51,6 +94,10 @@ def analyze_frames():
         return jsonify({"error": "No frames uploaded"}), 400
 
     analyses = []
+    memory = load_memory()
+    recent_context = "\n".join(
+        [f"- {m['type']}: {m['summary']}" for m in memory[-5:]]
+    )
 
     try:
         for i, file in enumerate(files):
@@ -58,26 +105,23 @@ def analyze_frames():
             path = os.path.join("uploads", filename)
             file.save(path)
 
-            # Read the image to send to the Vision model
             with open(path, "rb") as img_file:
                 image_bytes = img_file.read()
 
-            # Analyze each frame using GPT-4o-mini (Vision)
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
                         "content": (
-                            "You are a Clash Royale coach that analyzes real gameplay screenshots frame-by-frame. "
-                            "Describe what is happening in the image, mention what the player is doing well or poorly, "
-                            "and give one improvement tip per frame."
+                            "You are a Clash Royale coach that analyzes gameplay frames. "
+                            "You also remember recent matches from memory."
                         ),
                     },
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": f"This is frame {i+1} of a Clash Royale match. Analyze it:"},
+                            {"type": "text", "text": f"Recent knowledge:\n{recent_context}\n\nNow analyze frame {i+1}:"},
                             {"type": "image", "image_data": image_bytes}
                         ]
                     }
@@ -92,6 +136,11 @@ def analyze_frames():
                 "analysis": ai_comment
             })
 
+            save_memory({
+                "type": "frame_analysis",
+                "summary": ai_comment[:200] + "...",
+            })
+
         return jsonify({
             "status": "ok",
             "frames_analyzed": len(analyses),
@@ -102,6 +151,8 @@ def analyze_frames():
         return jsonify({"error": str(e)}), 500
 
 
-# 🔥 Run App
+# ---------------------------
+# 🚀 RUN
+# ---------------------------
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
