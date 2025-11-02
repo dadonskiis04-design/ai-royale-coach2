@@ -1,200 +1,97 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from openai import OpenAI
-import os, json, cv2, tempfile
+import os
+import cv2
+import numpy as np
 
 app = Flask(__name__)
-
-# ---------------------------
-# 🔑 OPENAI CLIENT
-# ---------------------------
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-# ---------------------------
-# 📁 FOLDERS + MEMORY FILE
-# ---------------------------
-os.makedirs("uploads", exist_ok=True)
-MEMORY_FILE = "memory.json"
-
-# ---------------------------
-# 🧠 MEMORY SYSTEM
-# ---------------------------
-def load_memory():
-    if not os.path.exists(MEMORY_FILE):
-        return []
-    with open(MEMORY_FILE, "r") as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return []
-
-def save_memory(entry):
-    memory = load_memory()
-    memory.append(entry)
-    with open(MEMORY_FILE, "w") as f:
-        json.dump(memory[-50:], f, indent=2)  # keep last 50 memories
-
-
-# ---------------------------
-# ⚔️ DECK ANALYZER
-# ---------------------------
+# ---- ROUTE 1: Deck Analyzer ----
 @app.route('/', methods=['GET', 'POST'])
 def home():
     result = None
     if request.method == 'POST':
         deck = request.form['deck']
-        memory = load_memory()
-        recent_context = "\n".join(
-            [f"- {m['type']}: {m['summary']}" for m in memory[-5:]]
-        )
-
         try:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a Clash Royale deck analyst that remembers past analyses."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""
-Here’s some past knowledge:
-{recent_context}
+                    {"role": "system", "content": "You are a Clash Royale deck analyst."},
+                    {"role": "user", "content": f"""
+Analyze this Clash Royale deck: {deck}
 
-Now analyze this new deck: {deck}
-
-Give:
-- Strengths
-- Weaknesses
+Give a structured analysis including:
+- Deck Strengths
+- Deck Weaknesses
 - Ideal Playstyle
 - Best Counters
 - Average Elixir Cost
-- Rating /100
-"""
-                    }
+- And finally, rate this deck out of 100 points based on balance, synergy, and meta strength.
+
+Format the output neatly with clear sections.
+"""}
                 ]
             )
             result = response.choices[0].message.content
-
-            save_memory({
-                "type": "deck_analysis",
-                "deck": deck,
-                "summary": result[:200] + "...",
-            })
-
         except Exception as e:
             result = f"Error: {str(e)}"
-
     return render_template('index.html', result=result)
 
+# ---- ROUTE 2: Video Upload + Frame Extraction ----
+@app.route('/analyze-video', methods=['GET', 'POST'])
+def analyze_video():
+    analysis = None
+    if request.method == 'POST':
+        video_file = request.files['video']
+        if video_file:
+            # Save the uploaded file temporarily
+            video_path = os.path.join("static", "uploaded_video.mp4")
+            video_file.save(video_path)
 
-# ---------------------------
-# 🧠 FRAME ANALYZER
-# ---------------------------
-@app.route("/analyze_frames", methods=["POST"])
-def analyze_frames():
-    files = request.files.getlist("frames")
-    if not files:
-        return jsonify({"error": "No frames uploaded"}), 400
+            # Extract frames every 3 seconds, skip low-motion scenes
+            frames = []
+            cap = cv2.VideoCapture(video_path)
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            interval = int(fps * 3)  # 3 seconds between frames
+            success, prev_frame = cap.read()
+            count = 0
 
-    analyses = []
-    memory = load_memory()
-    recent_context = "\n".join(
-        [f"- {m['type']}: {m['summary']}" for m in memory[-5:]]
-    )
+            while success:
+                if count % interval == 0:
+                    frame_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+                    # Skip if next frame has little motion
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    motion = np.mean(cv2.absdiff(frame_gray, gray))
+                    if motion > 10:  # only keep frames with noticeable motion
+                        frames.append(frame)
+                success, prev_frame = cap.read()
+                count += 1
+            cap.release()
 
-    try:
-        for i, file in enumerate(files):
-            filename = file.filename
-            path = os.path.join("uploads", filename)
-            file.save(path)
+            # Describe gameplay frames to the AI (simplified for now)
+            frame_count = len(frames)
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a Clash Royale match analyst. Only analyze gameplay scenes, ignore menus, commentary, and replays."},
+                        {"role": "user", "content": f"""
+A Clash Royale video was analyzed.
+The AI detected around {frame_count} active gameplay frames (after skipping still scenes).
 
-            with open(path, "rb") as img_file:
-                image_bytes = img_file.read()
-
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a Clash Royale coach that analyzes gameplay frames. "
-                            "You also remember recent matches from memory."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": f"Recent knowledge:\n{recent_context}\n\nNow analyze frame {i+1}:"},
-                            {"type": "image", "image_data": image_bytes}
-                        ]
-                    }
-                ]
-            )
-
-            ai_comment = response.choices[0].message.content
-
-            analyses.append({
-                "frame": i + 1,
-                "filename": filename,
-                "analysis": ai_comment
-            })
-
-            save_memory({
-                "type": "frame_analysis",
-                "summary": ai_comment[:200] + "...",
-            })
-
-        return jsonify({
-            "status": "ok",
-            "frames_analyzed": len(analyses),
-            "analyses": analyses
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+Based on this, describe possible player mistakes, good plays, and give general strategy feedback.
+"""}
+                    ]
+                )
+                analysis = response.choices[0].message.content
+            except Exception as e:
+                analysis = f"Error: {str(e)}"
+    return render_template('video.html', analysis=analysis)
 
 
-# ---------------------------
-# 🎥 VIDEO FRAME EXTRACTOR
-# ---------------------------
-@app.route('/upload_video', methods=['POST'])
-def upload_video():
-    video = request.files['video']
-    if not video:
-        return render_template('index.html', result="No video uploaded!")
-
-    # Save video temporarily
-    temp_video = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-    video.save(temp_video.name)
-
-    cap = cv2.VideoCapture(temp_video.name)
-    frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
-    frames = []
-    count = 0
-
-    # ⏱ Extract 1 frame every 3 seconds
-    interval = frame_rate * 3
-    max_frames = 500  # 🚫 Limit to 500 frames for performance
-
-    while cap.isOpened() and count < max_frames:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if int(cap.get(1)) % interval == 0:
-            frame_path = os.path.join("uploads", f"frame_{count}.jpg")
-            cv2.imwrite(frame_path, frame)
-            frames.append(frame_path)
-            count += 1
-    cap.release()
-    os.remove(temp_video.name)
-
-    analysis = f"🎞️ Extracted {len(frames)} frames (every 3s) from the video. Ready for AI analysis!"
-    return render_template('index.html', result=analysis)
-
-
-# ---------------------------
-# 🚀 RUN SERVER
-# ---------------------------
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
