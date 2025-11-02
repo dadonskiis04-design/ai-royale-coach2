@@ -1,18 +1,22 @@
 from flask import Flask, render_template, request, jsonify
 from openai import OpenAI
-import os, json
+import os, json, cv2, tempfile
 
 app = Flask(__name__)
 
+# ---------------------------
+# 🔑 OPENAI CLIENT
+# ---------------------------
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+# ---------------------------
+# 📁 FOLDERS + MEMORY FILE
+# ---------------------------
 os.makedirs("uploads", exist_ok=True)
-
 MEMORY_FILE = "memory.json"
 
-
 # ---------------------------
-# 📘 MEMORY SYSTEM
+# 🧠 MEMORY SYSTEM
 # ---------------------------
 def load_memory():
     if not os.path.exists(MEMORY_FILE):
@@ -152,14 +156,8 @@ def analyze_frames():
 
 
 # ---------------------------
-# 🚀 RUN
+# 🎥 VIDEO FRAME EXTRACTOR
 # ---------------------------
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
-import cv2
-import tempfile
-import os
-
 @app.route('/upload_video', methods=['POST'])
 def upload_video():
     video = request.files['video']
@@ -175,24 +173,28 @@ def upload_video():
     frames = []
     count = 0
 
-    # Extract 1 frame every 10 seconds
-    interval = frame_rate * 10
+    # ⏱ Extract 1 frame every 3 seconds
+    interval = frame_rate * 3
+    max_frames = 500  # 🚫 Limit to 500 frames for performance
 
-    while cap.isOpened():
+    while cap.isOpened() and count < max_frames:
         ret, frame = cap.read()
         if not ret:
             break
         if int(cap.get(1)) % interval == 0:
-            frame_path = f"frame_{count}.jpg"
+            frame_path = os.path.join("uploads", f"frame_{count}.jpg")
             cv2.imwrite(frame_path, frame)
             frames.append(frame_path)
             count += 1
     cap.release()
-
-    # Delete temp video
     os.remove(temp_video.name)
 
-    # Example placeholder analysis text
-    analysis = f"Extracted {len(frames)} frames from the video. Ready for AI analysis!"
-
+    analysis = f"🎞️ Extracted {len(frames)} frames (every 3s) from the video. Ready for AI analysis!"
     return render_template('index.html', result=analysis)
+
+
+# ---------------------------
+# 🚀 RUN SERVER
+# ---------------------------
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=10000)
