@@ -1,52 +1,143 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>Clash Coach AI - v1</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <style>
-    body { font-family: Arial, Helvetica, sans-serif; padding: 16px; background:#0f1724; color:#e6eef8; }
-    textarea { width:100%; height:180px; padding:8px; border-radius:8px; border:none; }
-    select, button { padding:10px; margin-top:8px; border-radius:8px; border:none; }
-    .card { background:#0b1120; padding:12px; border-radius:10px; margin-top:10px; }
-    .advice { background:#081226; padding:10px; border-radius:8px; margin-top:8px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clash Royale AI Analyzer</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1e1e2f;
+            color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #2a2a40;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 750px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #facc15;
+            margin-bottom: 1rem;
+        }
+        textarea, input[type="file"] {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 10px;
+            border: none;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            background-color: #1e1e2f;
+            color: #f2f2f2;
+        }
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #facc15;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #eab308;
+        }
+        .result {
+            margin-top: 1.5rem;
+            background-color: #1b1b2e;
+            padding: 1.5rem;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        h2 {
+            color: #60a5fa;
+        }
+        strong {
+            color: #facc15;
+        }
+        .section {
+            margin-top: 2rem;
+            border-top: 1px solid #3a3a4f;
+            padding-top: 1.5rem;
+        }
+    </style>
 </head>
 <body>
-  <h1>Clash Coach AI (v1)</h1>
-  <p>Paste a short match summary or notes (e.g. "I used Hog + Fireball, opponent used Mini P.E.K.K.A + Log").</p>
-  <textarea id="text" placeholder="Type or paste match summary..."></textarea>
-  <div style="display:flex; gap:8px; margin-top:8px;">
-    <select id="tone">
-      <option value="balanced">Balanced</option>
-      <option value="coach">Coach</option>
-      <option value="hype">Hype Gamer</option>
-    </select>
-    <button onclick="analyze()">Analyze</button>
-  </div>
-  <div id="result" class="card"></div>
-<script>
-async function analyze(){
-  const text = document.getElementById('text').value.trim();
-  const tone = document.getElementById('tone').value;
-  if(!text){ alert('Please paste a match summary first.'); return; }
-  document.getElementById('result').innerHTML = '<em>Analyzing...</em>';
-  try{
-    const res = await fetch('/analyze', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ text, tone })
-    });
-    const data = await res.json();
-    let html = '<h3>Reports</h3><ul>';
-    for(const r of data.reports){ html += `<li>${r.desc}</li>`; }
-    html += '</ul><h3>Advice</h3>';
-    for(const a of data.advice){ html += `<div class="advice">${a}</div>`; }
-    document.getElementById('result').innerHTML = html;
-  }catch(err){
-    document.getElementById('result').innerHTML = 'Error: '+err.message;
-  }
-}
-</script>
+    <div class="container">
+        <h1>⚔️ Clash Royale AI Analyzer</h1>
+
+        <!-- 🧩 Deck Analyzer -->
+        <div class="section">
+            <h2>Deck Analyzer</h2>
+            <form method="POST" action="/">
+                <textarea name="deck" placeholder="Enter your deck cards (e.g. Miner, Poison, Valkyrie...)"></textarea>
+                <button type="submit">Analyze Deck</button>
+            </form>
+        </div>
+
+        <!-- 🧠 Frame Analyzer -->
+        <div class="section">
+            <h2>Frame Analyzer</h2>
+            <form id="frameForm" enctype="multipart/form-data">
+                <input type="file" name="frames" multiple accept="image/*">
+                <button type="button" onclick="uploadFrames()">Analyze Frames</button>
+            </form>
+        </div>
+
+        <!-- 🎥 Video Analyzer -->
+        <div class="section">
+            <h2>Video Frame Extractor</h2>
+            <form method="POST" action="/upload_video" enctype="multipart/form-data">
+                <input type="file" name="video" accept="video/mp4,video/webm,video/mkv">
+                <button type="submit">Upload & Extract Frames (every 3s)</button>
+            </form>
+        </div>
+
+        {% if result %}
+        <div class="result" id="result">
+            {{ result|safe }}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+    async function uploadFrames() {
+        const form = document.getElementById("frameForm");
+        const formData = new FormData(form);
+
+        const res = await fetch("/analyze_frames", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await res.json();
+        const resultDiv = document.getElementById("result") || document.createElement("div");
+        resultDiv.className = "result";
+        resultDiv.id = "result";
+        document.querySelector(".container").appendChild(resultDiv);
+
+        if (data.error) {
+            resultDiv.innerText = "Error: " + data.error;
+        } else {
+            let output = `🧠 Analyzed ${data.frames_analyzed} frames:\n\n`;
+            data.analyses.forEach(a => {
+                output += `🎞 Frame ${a.frame}: ${a.analysis}\n\n`;
+            });
+            resultDiv.innerText = output;
+        }
+    }
+    </script>
 </body>
 </html>
