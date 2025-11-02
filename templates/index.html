@@ -65,11 +65,31 @@
         strong {
             color: #facc15;
         }
+        hr {
+            border: none;
+            height: 1px;
+            background-color: #444;
+            margin: 2rem 0;
+        }
+        input[type="file"] {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        #frameResult {
+            background-color: #1b1b2e;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>⚔️ Clash Royale AI Analyzer</h1>
+
+        <!-- Deck Analyzer Section -->
+        <h2>Deck Analysis</h2>
         <form method="POST" action="/">
             <textarea name="deck" placeholder="Enter your deck cards..."></textarea>
             <button type="submit">Analyze Deck</button>
@@ -84,20 +104,15 @@
         const resultDiv = document.getElementById("result");
         const text = resultDiv.innerText;
 
-        // Try to find a score like "87/100" in the text
         const match = text.match(/(\d{1,3})\/100/);
         if (match) {
             const score = parseInt(match[1]);
-            
-            // Create score bar container
             const barContainer = document.createElement("div");
             barContainer.style.marginTop = "1rem";
             barContainer.style.height = "25px";
             barContainer.style.borderRadius = "10px";
             barContainer.style.overflow = "hidden";
             barContainer.style.backgroundColor = "#333";
-
-            // Create bar itself
             const bar = document.createElement("div");
             bar.style.height = "100%";
             bar.style.width = "0%";
@@ -107,14 +122,9 @@
                 score >= 75 ? "#60a5fa" :
                 score >= 50 ? "#10b981" :
                 "#ef4444";
-
             barContainer.appendChild(bar);
             resultDiv.appendChild(barContainer);
-
-            // Animate bar fill
             setTimeout(() => { bar.style.width = score + "%"; }, 100);
-
-            // Add score text under it
             const scoreText = document.createElement("p");
             scoreText.style.textAlign = "center";
             scoreText.style.fontWeight = "bold";
@@ -125,11 +135,43 @@
                 score >= 50 ? "#10b981" :
                 "#ef4444";
             scoreText.innerText = `Score: ${score}/100`;
-
             resultDiv.appendChild(scoreText);
         }
         </script>
         {% endif %}
+
+        <hr>
+
+        <!-- Gameplay Frame Analyzer Section -->
+        <h2>Gameplay Frame Analyzer</h2>
+        <form id="uploadForm" method="POST" action="/analyze_frames" enctype="multipart/form-data">
+            <p>Select multiple screenshots from a Clash Royale match:</p>
+            <input type="file" name="frames" accept="image/*" multiple required>
+            <button type="submit">Upload & Analyze Frames</button>
+        </form>
+
+        <div id="frameResult"></div>
+
+        <script>
+            const form = document.getElementById('uploadForm');
+            const resultDiv2 = document.getElementById('frameResult');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(form);
+                resultDiv2.innerHTML = "⏳ Uploading and analyzing frames...";
+                try {
+                    const response = await fetch('/analyze_frames', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    resultDiv2.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } catch (error) {
+                    resultDiv2.innerHTML = "❌ Error: " + error;
+                }
+            });
+        </script>
     </div>
 </body>
 </html>
