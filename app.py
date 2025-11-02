@@ -156,3 +156,43 @@ def analyze_frames():
 # ---------------------------
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
+import cv2
+import tempfile
+import os
+
+@app.route('/upload_video', methods=['POST'])
+def upload_video():
+    video = request.files['video']
+    if not video:
+        return render_template('index.html', result="No video uploaded!")
+
+    # Save video temporarily
+    temp_video = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+    video.save(temp_video.name)
+
+    cap = cv2.VideoCapture(temp_video.name)
+    frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
+    frames = []
+    count = 0
+
+    # Extract 1 frame every 10 seconds
+    interval = frame_rate * 10
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if int(cap.get(1)) % interval == 0:
+            frame_path = f"frame_{count}.jpg"
+            cv2.imwrite(frame_path, frame)
+            frames.append(frame_path)
+            count += 1
+    cap.release()
+
+    # Delete temp video
+    os.remove(temp_video.name)
+
+    # Example placeholder analysis text
+    analysis = f"Extracted {len(frames)} frames from the video. Ready for AI analysis!"
+
+    return render_template('index.html', result=analysis)
