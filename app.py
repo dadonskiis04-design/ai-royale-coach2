@@ -45,34 +45,31 @@ def analyze_video():
     if request.method == 'POST':
         video_file = request.files['video']
         if video_file:
-            # Save the uploaded file temporarily
             video_path = os.path.join("static", "uploaded_video.mp4")
             video_file.save(video_path)
 
-            # Extract frames every 3 seconds, skip low-motion scenes
+            # Extract 1 frame every 3 seconds and skip still scenes
             frames = []
             cap = cv2.VideoCapture(video_path)
             fps = int(cap.get(cv2.CAP_PROP_FPS))
-            interval = int(fps * 3)  # 3 seconds between frames
+            interval = int(fps * 3)
             success, prev_frame = cap.read()
             count = 0
 
             while success:
                 if count % interval == 0:
                     frame_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-                    # Skip if next frame has little motion
                     ret, frame = cap.read()
                     if not ret:
                         break
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     motion = np.mean(cv2.absdiff(frame_gray, gray))
-                    if motion > 10:  # only keep frames with noticeable motion
+                    if motion > 10:
                         frames.append(frame)
                 success, prev_frame = cap.read()
                 count += 1
             cap.release()
 
-            # Describe gameplay frames to the AI (simplified for now)
             frame_count = len(frames)
             try:
                 response = client.chat.completions.create(
