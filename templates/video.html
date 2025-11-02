@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎥 Clash Royale Video Analyzer</title>
+  <style>
+    body {
+      background: #1e1e2f;
+      color: #fff;
+      font-family: "Poppins", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+      color: gold;
+    }
+    form {
+      background: #292946;
+      padding: 1.5rem;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+    input[type="file"] {
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      padding: 0.5rem;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    button {
+      background: gold;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 0.7rem 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    button:hover {
+      background: orange;
+    }
+    .result {
+      background: #22223b;
+      margin-top: 2rem;
+      padding: 1rem;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 600px;
+      text-align: left;
+      box-shadow: 0 0 15px rgba(255,255,255,0.1);
+    }
+    a {
+      color: gold;
+      font-weight: bold;
+      text-decoration: none;
+      margin-top: 1rem;
+      display: inline-block;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎥 Clash Royale Video Analyzer</h1>
+  <form action="/analyze-video" method="POST" enctype="multipart/form-data">
+    <input type="file" name="video" accept="video/*" required>
+    <button type="submit">Upload & Analyze Video</button>
+  </form>
+
+  {% if analysis %}
+  <div class="result">
+    <h2>🧠 AI Match Feedback</h2>
+    <p>{{ analysis|safe }}</p>
+  </div>
+  {% endif %}
+
+  <a href="/">← Back to Deck Analyzer</a>
+</body>
+</html>
