@@ -3,3 +3,4 @@ gunicorn
 pydantic
 openai>=1.0.0
 opencv-python
+numpy
